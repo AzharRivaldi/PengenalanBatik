@@ -135,8 +135,8 @@ class MainActivity : AppCompatActivity(), onSelectData {
                                 dataApi.hitungView = jsonObject.getString("hitung_view")
                                 dataApi.linkBatik = jsonObject.getString("link_batik")
                                 modelMain.add(dataApi)
-                                showAllBatik()
                             }
+                            showAllBatik()
                         } catch (e: JSONException) {
                             e.printStackTrace()
                             Toast.makeText(this@MainActivity, "Gagal menampilkan data!", Toast.LENGTH_SHORT).show()
@@ -204,8 +204,8 @@ class MainActivity : AppCompatActivity(), onSelectData {
                                     dataApi.hitungView = jsonObject.getString("hitung_view")
                                     dataApi.linkBatik = jsonObject.getString("link_batik")
                                     modelMain.add(dataApi)
-                                    showAllBatik()
                                 }
+                                showAllBatik()
                             } catch (e: JSONException) {
                                 e.printStackTrace()
                                 Toast.makeText(this@MainActivity, "Gagal menampilkan data!", Toast.LENGTH_SHORT).show()
