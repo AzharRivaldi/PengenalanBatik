@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.ResultReceiver
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.SearchView
@@ -83,33 +84,37 @@ class MainActivity : AppCompatActivity(), onSelectData {
             }
 
             override fun onQueryTextChange(newText: String): Boolean {
-                if (newText == "") allBatik
+                if (newText == "") getAllBatik()
                 return false
             }
         })
 
-        val searchPlateId = searchBatik.getContext().resources
+        val searchPlateId = searchBatik.context.resources
                 .getIdentifier("android:id/search_plate", null, null)
         val searchPlate = searchBatik.findViewById<View>(searchPlateId)
         searchPlate?.setBackgroundColor(Color.TRANSPARENT)
 
+        mainAdapter = MainAdapter(this, modelMain, this)
+
         rvAllBatik.setHasFixedSize(true)
-        rvAllBatik.setLayoutManager(LinearLayoutManager(this))
+        rvAllBatik.layoutManager = LinearLayoutManager(this)
+        rvAllBatik.adapter = mainAdapter
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 currentLocation = locationResult.locations[0]
-                address
+                getAddress()
             }
         }
 
         startLocationUpdates()
 
         //method get slide
-        slide
+        getSlideData()
 
         //method get data
-        allBatik
+        getAllBatik()
     }
 
     private fun setSearchBatik(query: String) {
@@ -121,7 +126,9 @@ class MainActivity : AppCompatActivity(), onSelectData {
                     override fun onResponse(response: JSONObject) {
                         try {
                             progressDialog?.dismiss()
-                            modelMain = ArrayList()
+
+                            if (modelMain.isNotEmpty()) modelMain.clear()
+
                             val jsonArray = response.getJSONArray("hasil")
                             for (i in 0 until jsonArray.length()) {
                                 val jsonObject = jsonArray.getJSONObject(i)
@@ -136,7 +143,8 @@ class MainActivity : AppCompatActivity(), onSelectData {
                                 dataApi.linkBatik = jsonObject.getString("link_batik")
                                 modelMain.add(dataApi)
                             }
-                            showAllBatik()
+                            mainAdapter?.notifyDataSetChanged()
+
                         } catch (e: JSONException) {
                             e.printStackTrace()
                             Toast.makeText(this@MainActivity, "Gagal menampilkan data!", Toast.LENGTH_SHORT).show()
@@ -150,74 +158,80 @@ class MainActivity : AppCompatActivity(), onSelectData {
                 })
     }
 
-    private val slide: Unit
-        private get() {
-            AndroidNetworking.get(ApiEndpoint.BASEURL_POPULAR)
-                    .setPriority(Priority.MEDIUM)
-                    .build()
-                    .getAsJSONObject(object : JSONObjectRequestListener {
-                        @RequiresApi(api = Build.VERSION_CODES.M)
-                        override fun onResponse(response: JSONObject) {
-                            try {
-                                val jsonArray = response.getJSONArray("hasil")
-                                for (y in 0 until jsonArray.length()) {
-                                    val jsonObject = jsonArray.getJSONObject(y)
-                                    val mdlSlide = ModelSlide()
-                                    mdlSlide.namaBatik = jsonObject.getString("nama_batik")
-                                    mdlSlide.linkBatik = jsonObject.getString("link_batik")
-                                    modelSlide.add(mdlSlide)
-                                }
-                                setImgSlide()
-                            } catch (e: JSONException) {
-                                e.printStackTrace()
-                                Toast.makeText(this@MainActivity, "Gambar tidak ditemukan!", Toast.LENGTH_SHORT).show()
+    private fun getSlideData() {
+        AndroidNetworking.get(ApiEndpoint.BASEURL_POPULAR)
+                .setPriority(Priority.MEDIUM)
+                .build()
+                .getAsJSONObject(object : JSONObjectRequestListener {
+                    @RequiresApi(api = Build.VERSION_CODES.M)
+                    override fun onResponse(response: JSONObject) {
+                        try {
+                            val jsonArray = response.getJSONArray("hasil")
+                            for (y in 0 until jsonArray.length()) {
+                                val jsonObject = jsonArray.getJSONObject(y)
+                                val mdlSlide = ModelSlide()
+                                mdlSlide.namaBatik = jsonObject.getString("nama_batik")
+                                mdlSlide.linkBatik = jsonObject.getString("link_batik")
+                                modelSlide.add(mdlSlide)
                             }
+                            setImgSlide()
+                        } catch (e: JSONException) {
+                            e.printStackTrace()
+                            Toast.makeText(this@MainActivity, "Gambar tidak ditemukan!", Toast.LENGTH_SHORT).show()
                         }
+                    }
 
-                        override fun onError(anError: ANError) {
-                            Toast.makeText(this@MainActivity, "Error Slide", Toast.LENGTH_SHORT).show()
-                        }
-                    })
-        }
+                    override fun onError(anError: ANError) {
+                        Toast.makeText(this@MainActivity, "Error Slide", Toast.LENGTH_SHORT).show()
+                    }
+                })
+    }
 
-    private val allBatik: Unit
-        private get() {
-            progressDialog?.show()
-            AndroidNetworking.get(ApiEndpoint.BASEURL_ALL)
-                    .setPriority(Priority.HIGH)
-                    .build()
-                    .getAsJSONObject(object : JSONObjectRequestListener {
-                        override fun onResponse(response: JSONObject) {
-                            try {
-                                progressDialog?.dismiss()
-                                modelMain = ArrayList()
-                                val jsonArray = response.getJSONArray("hasil")
-                                for (i in 0 until jsonArray.length()) {
-                                    val jsonObject = jsonArray.getJSONObject(i)
-                                    val dataApi = ModelMain()
-                                    dataApi.id = jsonObject.getInt("id")
-                                    dataApi.namaBatik = jsonObject.getString("nama_batik")
-                                    dataApi.daerahBatik = jsonObject.getString("daerah_batik")
-                                    dataApi.maknaBatik = jsonObject.getString("makna_batik")
-                                    dataApi.hargaRendah = jsonObject.getInt("harga_rendah")
-                                    dataApi.hargaTinggi = jsonObject.getInt("harga_tinggi")
-                                    dataApi.hitungView = jsonObject.getString("hitung_view")
-                                    dataApi.linkBatik = jsonObject.getString("link_batik")
-                                    modelMain.add(dataApi)
-                                }
-                                showAllBatik()
-                            } catch (e: JSONException) {
-                                e.printStackTrace()
-                                Toast.makeText(this@MainActivity, "Gagal menampilkan data!", Toast.LENGTH_SHORT).show()
-                            }
-                        }
 
-                        override fun onError(anError: ANError) {
+    private fun getAllBatik() {
+        Log.d("debug", "get all batik")
+        progressDialog?.show()
+        AndroidNetworking.get(ApiEndpoint.BASEURL_ALL)
+                .setPriority(Priority.HIGH)
+                .build()
+                .getAsJSONObject(object : JSONObjectRequestListener {
+                    override fun onResponse(response: JSONObject) {
+                        Log.d("debug", "all batik response : $response")
+                        try {
                             progressDialog?.dismiss()
-                            Toast.makeText(this@MainActivity, "Tidak ada jaringan internet!", Toast.LENGTH_SHORT).show()
+
+                            val jsonArray = response.getJSONArray("hasil")
+                            for (i in 0 until jsonArray.length()) {
+                                val jsonObject = jsonArray.getJSONObject(i)
+                                val dataApi = ModelMain()
+                                dataApi.id = jsonObject.getInt("id")
+                                dataApi.namaBatik = jsonObject.getString("nama_batik")
+                                dataApi.daerahBatik = jsonObject.getString("daerah_batik")
+                                dataApi.maknaBatik = jsonObject.getString("makna_batik")
+                                dataApi.hargaRendah = jsonObject.getInt("harga_rendah")
+                                dataApi.hargaTinggi = jsonObject.getInt("harga_tinggi")
+                                dataApi.hitungView = jsonObject.getString("hitung_view")
+                                dataApi.linkBatik = jsonObject.getString("link_batik")
+                                modelMain.add(dataApi)
+                            }
+                            Log.d("debug", "data size ${modelMain.size}")
+                            // notify adapter
+                            mainAdapter?.notifyDataSetChanged()
+
+                        } catch (e: JSONException) {
+                            Log.e("error", "error ${e.localizedMessage}")
+                            Toast.makeText(this@MainActivity, "Gagal menampilkan data!", Toast.LENGTH_SHORT).show()
                         }
-                    })
-        }
+                    }
+
+                    override fun onError(anError: ANError) {
+                        Log.e("error", "error request: ${anError.localizedMessage}")
+                        progressDialog?.dismiss()
+                        Toast.makeText(this@MainActivity, "Tidak ada jaringan internet!", Toast.LENGTH_SHORT).show()
+                    }
+                })
+    }
+
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private fun setImgSlide() {
@@ -230,12 +244,6 @@ class MainActivity : AppCompatActivity(), onSelectData {
         imgSlider.indicatorUnselectedColor = getColor(R.color.colorAccent)
         imgSlider.startAutoCycle()
         imgSlider.setOnIndicatorClickListener { position -> imgSlider.currentPagePosition = position }
-    }
-
-    private fun showAllBatik() {
-        mainAdapter = MainAdapter(this, modelMain, this)
-        rvAllBatik.adapter = mainAdapter
-        mainAdapter?.notifyDataSetChanged()
     }
 
     override fun onSelected(modelMain: ModelMain) {
@@ -258,21 +266,20 @@ class MainActivity : AppCompatActivity(), onSelectData {
         }
     }
 
-    private val address: Unit
-        private get() {
-            if (!Geocoder.isPresent()) {
-                Toast.makeText(this@MainActivity, "Can't find current address, ", Toast.LENGTH_SHORT).show()
-                return
-            }
-            val intent = Intent(this, GetAddressIntentService::class.java)
-            intent.putExtra("add_receiver", addressResultReceiver)
-            intent.putExtra("add_location", currentLocation)
-            startService(intent)
+    private fun getAddress() {
+        if (!Geocoder.isPresent()) {
+            Toast.makeText(this@MainActivity, "Can't find current address, ", Toast.LENGTH_SHORT).show()
+            return
         }
+        val intent = Intent(this, GetAddressIntentService::class.java)
+        intent.putExtra("add_receiver", addressResultReceiver)
+        intent.putExtra("add_location", currentLocation)
+        startService(intent)
+    }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startLocationUpdates()
             } else {
                 Toast.makeText(this, "Location permission not granted", Toast.LENGTH_SHORT).show()
@@ -283,7 +290,7 @@ class MainActivity : AppCompatActivity(), onSelectData {
     private inner class LocationAddressResultReceiver internal constructor(handler: Handler?) : ResultReceiver(handler) {
         override fun onReceiveResult(resultCode: Int, resultData: Bundle) {
             if (resultCode == 0) {
-                address
+                getAddress()
             }
             if (resultCode == 1) {
                 Toast.makeText(this@MainActivity, "Address not found, ", Toast.LENGTH_SHORT).show()
